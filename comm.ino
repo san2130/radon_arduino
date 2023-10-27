@@ -150,7 +150,7 @@ int runCommand(){
   int pid_args[4];
   arg1 = atoi(argv1);
   arg2 = atoi(argv2);
-//  encRead[0]=cmd;
+
   if(cmd=='b')
   {
     sendBaud();
