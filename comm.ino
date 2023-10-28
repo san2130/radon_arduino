@@ -164,9 +164,9 @@ int runCommand(){
     encLeft = 120;
     int count_left = count(encLeft);
     int encRight = readEncoder(RIGHT);
+    encRight = 1111;
     int count_right = count(encRight);
     int encBack = readEncoder(BACK);
-    encRight = 1111;
     encBack = 10;
     char leftRead[10], rightRead[10], backRead[10];
     sprintf(leftRead,"%d", encLeft);
@@ -177,6 +177,7 @@ int runCommand(){
     encRead[count_left]=' ';
     for(int i=0;i<count_right;i++)
       encRead[i+count_left+1] = rightRead[i];
+    encRead[count_left+count_right+1]=' ';
     for(int i=0;i<count(encBack);i++)
       encRead[i+count_left+1+count_right+1] = backRead[i];
     sendEncoder();
