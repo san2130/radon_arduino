@@ -74,11 +74,11 @@
 
 SerialTransfer myTransfer;
 
-char arr[12];
-char success[20]="OK";
-char failure[20]="ER";
-char bd[20]="57600";
-char encRead[20];
+char arr[20];
+char success[30]="OK";
+char failure[30]="ER";
+char bd[30]="57600";
+char encRead[30];
 
 // A pair of varibles to help parse serial commands (thanks Fergs)
 int arg = 0;
@@ -93,10 +93,12 @@ char cmd;
 // Character arrays to hold the first and second arguments
 char argv1[16];
 char argv2[16];
+char argv3[16];
 
 // The arguments converted to integers
 long arg1;
 long arg2;
+long arg3;
 
 void setup()
 {
@@ -150,6 +152,7 @@ int runCommand(){
   int pid_args[4];
   arg1 = atoi(argv1);
   arg2 = atoi(argv2);
+  arg3 = atoi(argv3);
 
   if(cmd=='b')
   {
@@ -161,15 +164,21 @@ int runCommand(){
     encLeft = 120;
     int count_left = count(encLeft);
     int encRight = readEncoder(RIGHT);
+    int count_right = count(encRight);
+    int encBack = readEncoder(BACK);
     encRight = 1111;
-    char leftRead[10], rightRead[10];
+    encBack = 10;
+    char leftRead[10], rightRead[10], backRead[10];
     sprintf(leftRead,"%d", encLeft);
     sprintf(rightRead,"%d", encRight);
+    sprintf(backRead,"%d", encBack);
     for(int i=0;i<count_left;i++)
       encRead[i] = leftRead[i];
     encRead[count_left]=' ';
-    for(int i=0;i<count(encRight);i++)
+    for(int i=0;i<count_right;i++)
       encRead[i+count_left+1] = rightRead[i];
+    for(int i=0;i<count(encBack);i++)
+      encRead[i+count_left+1+count_right+1] = backRead[i];
     sendEncoder();
   }
   else if(cmd=='r')
@@ -182,14 +191,15 @@ int runCommand(){
   {
     /* Reset the auto stop timer */
     lastMotorCommand = millis();
-    if (arg1 == 0 && arg2 == 0) {
-      setMotorSpeeds(0, 0);
+    if (arg1 == 0 && arg2 == 0 && arg3 == 0) {
+      setMotorSpeeds(0, 0, 0);
       resetPID();
       moving = 0;
     }
     else moving = 1;
     leftPID.TargetTicksPerFrame = arg1;
     rightPID.TargetTicksPerFrame = arg2;
+    backPID.TargetTicksPerFrame = arg3;
     sendSuccess();
   }
   else if(cmd=='o')
@@ -198,7 +208,7 @@ int runCommand(){
     lastMotorCommand = millis();
     resetPID();
     moving = 0; // Sneaky way to temporarily disable the PID
-    setMotorSpeeds(arg1, arg2);
+    setMotorSpeeds(arg1, arg2, arg3);
     sendSuccess();
   }
   else
@@ -213,8 +223,10 @@ void resetCommand() {
   cmd = NULL;
   memset(argv1, 0, sizeof(argv1));
   memset(argv2, 0, sizeof(argv2));
+  memset(argv3, 0, sizeof(argv3));
   arg1 = 0;
   arg2 = 0;
+  arg3 = 0;
   arg = 0;
   index = 0;
 }
@@ -227,12 +239,13 @@ void loop()
     uint16_t sendSize = 0;
     
     recSize = myTransfer.rxObj(arr, recSize);
-    for(int i=0; i < 12; i++)
+    for(int i=0; i < 20; i++)
     {
        char chr = arr[i];
        if (chr == 13) {
         if (arg == 1) argv1[index] = NULL;
         else if (arg == 2) argv2[index] = NULL;
+        else if(arg == 3) argv3[index] = NULL;
           runCommand();
           resetCommand();
        }
@@ -243,6 +256,11 @@ void loop()
         else if (arg == 1)  {
           argv1[index] = NULL;
           arg = 2;
+          index = 0;
+        }
+        else if (arg == 2) {
+          argv2[index] = NULL;
+          arg = 3;
           index = 0;
         }
         continue;
@@ -259,6 +277,10 @@ void loop()
         }
         else if (arg == 2) {
           argv2[index] = chr;
+          index++;
+        }
+        else if (arg == 3) {
+          argv3[index] = chr;
           index++;
         }
       }

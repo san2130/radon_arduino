@@ -30,7 +30,7 @@ typedef struct {
 }
 SetPointInfo;
 
-SetPointInfo leftPID, rightPID;
+SetPointInfo leftPID, rightPID, backPID;
 
 /* PID Parameters */
 int Kp = 20;
@@ -62,6 +62,13 @@ void resetPID(){
    rightPID.output = 0;
    rightPID.PrevInput = 0;
    rightPID.ITerm = 0;
+
+   backPID.TargetTicksPerFrame = 0.0;
+   backPID.Encoder = readEncoder(BACK);
+   backPID.PrevEnc = backPID.Encoder;
+   backPID.output = 0;
+   backPID.PrevInput = 0;
+   backPID.ITerm = 0;
 }
 
 /* PID routine to compute the next motor commands */
@@ -107,6 +114,7 @@ void updatePID() {
   /* Read the encoders */
   leftPID.Encoder = readEncoder(LEFT);
   rightPID.Encoder = readEncoder(RIGHT);
+  backPID.Encoder = readEncoder(BACK);
   
   /* If we're not moving there is nothing more to do */
   if (!moving){
@@ -116,15 +124,16 @@ void updatePID() {
     * PrevInput is considered a good proxy to detect
     * whether reset has already happened
     */
-    if (leftPID.PrevInput != 0 || rightPID.PrevInput != 0) resetPID();
+    if (leftPID.PrevInput != 0 || rightPID.PrevInput != 0 || backPID.PrevInput != 0) resetPID();
     return;
   }
 
   /* Compute PID update for each motor */
   doPID(&rightPID);
   doPID(&leftPID);
+  doPID(&backPID);
 
   /* Set the motor speeds accordingly */
-  setMotorSpeeds(leftPID.output, rightPID.output);
+  setMotorSpeeds(leftPID.output, rightPID.output, backPID.output);
 }
 
