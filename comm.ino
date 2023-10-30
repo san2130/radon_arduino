@@ -1,3 +1,4 @@
+#include <util/atomic.h>
 #include "SerialTransfer.h"
 #define USE_BASE      // Enable the base controller code
 //#undef USE_BASE     // Disable the base controller code
@@ -104,6 +105,12 @@ void setup()
 {
   Serial.begin(57600);
   myTransfer.begin(Serial);
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_PIN_A),
+                  interruptLeftEncoder,RISING);
+  attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_PIN_A),
+                  interruptRightEncoder,RISING);
+  attachInterrupt(digitalPinToInterrupt(BACK_ENC_PIN_A),
+                  interruptBackEncoder,RISING);
 }
 
 int count(int x)
