@@ -16,7 +16,7 @@
   static const int8_t ENC_STATES [] = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};  //encoder lookup table
   
   /* Wrap the encoder reading function */
-  long readEncoder(int i) {
+  int readEncoder(int i) {
     int left_pos=0;
     int right_pos=0;
     int back_pos=0;

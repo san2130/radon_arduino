@@ -111,6 +111,22 @@ void setup()
                   interruptRightEncoder,RISING);
   attachInterrupt(digitalPinToInterrupt(BACK_ENC_PIN_A),
                   interruptBackEncoder,RISING);
+
+  pinMode(LEFT_ENC_PIN_A,INPUT);
+  pinMode(LEFT_ENC_PIN_B,INPUT);
+  pinMode(RIGHT_ENC_PIN_A,INPUT);
+  pinMode(RIGHT_ENC_PIN_B,INPUT);
+  pinMode(BACK_ENC_PIN_A,INPUT);
+  pinMode(BACK_ENC_PIN_B,INPUT);
+  pinMode(LEFT_MOTOR_PWM,OUTPUT);
+  pinMode(RIGHT_MOTOR_PWM,OUTPUT);
+  pinMode(BACK_MOTOR_PWM,OUTPUT);
+  pinMode(LEFT_MOTOR_BACKWARD,OUTPUT);
+  pinMode(RIGHT_MOTOR_BACKWARD,OUTPUT);
+  pinMode(BACK_MOTOR_BACKWARD,OUTPUT);
+  pinMode(LEFT_MOTOR_FORWARD,OUTPUT);
+  pinMode(RIGHT_MOTOR_FORWARD,OUTPUT);
+  pinMode(BACK_MOTOR_FORWARD,OUTPUT);
 }
 
 int count(int x)
@@ -168,24 +184,40 @@ int runCommand(){
   else if(cmd=='e')
   {
     int encLeft = readEncoder(LEFT);
-    encLeft = 120;
     int count_left = count(encLeft);
     int encRight = readEncoder(RIGHT);
-    encRight = 1111;
     int count_right = count(encRight);
     int encBack = readEncoder(BACK);
-    encBack = 10;
+    int count_back = count(encBack);
     char leftRead[10], rightRead[10], backRead[10];
-    sprintf(leftRead,"%d", encLeft);
-    sprintf(rightRead,"%d", encRight);
-    sprintf(backRead,"%d", encBack);
+    if(encLeft==0)
+    {
+      leftRead[0]='0';
+      count_left=1;
+    }
+    else
+      sprintf(leftRead,"%d", encLeft);
+    if(encRight==0)
+    {
+      rightRead[0]='0';
+      count_right=1;
+    }
+    else
+      sprintf(rightRead,"%d", encRight);
+    if(encBack==0)
+    {
+      backRead[0]='0';
+      count_back=1;
+    }
+    else
+      sprintf(backRead,"%d", encBack);
     for(int i=0;i<count_left;i++)
       encRead[i] = leftRead[i];
     encRead[count_left]=' ';
     for(int i=0;i<count_right;i++)
       encRead[i+count_left+1] = rightRead[i];
     encRead[count_left+count_right+1]=' ';
-    for(int i=0;i<count(encBack);i++)
+    for(int i=0;i<count_back;i++)
       encRead[i+count_left+1+count_right+1] = backRead[i];
     sendEncoder();
   }
@@ -294,7 +326,17 @@ void loop()
       }
     }
   }
-    
+  #ifdef USE_BASE
+    if (millis() > nextPID) {
+      updatePID();
+      nextPID += PID_INTERVAL;
+    }
   
+    // Check to see if we have exceeded the auto-stop interval
+    if ((millis() - lastMotorCommand) > AUTO_STOP_INTERVAL) {;
+      setMotorSpeeds(0, 0, 0);
+      moving = 0;
+    }
+  #endif
   delay(1000/30);
 }
