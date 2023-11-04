@@ -18,30 +18,43 @@
   }
   
   void setMotorSpeed(int i, int spd) {
-    unsigned char reverse = 0;
+    unsigned int reverse = 0;
   
-    if (spd < 0)
+//    if (spd < 256)
+//    {
+//      reverse = 1;
+//    }
+//    else if (spd >= 256 && spd < 512)
+//    {
+//      spd = spd-256;
+//    }
+//    else
+//    {
+//      spd = 0;
+//    }
+    if(spd < 0)
     {
       spd = -spd;
       reverse = 1;
     }
-    if (spd > 255)
-      spd = 255;
-    
+    else if(spd>255)
+    {
+      spd = 0;
+    }
     if (i == LEFT) { 
       analogWrite(LEFT_MOTOR_PWM, spd);
       if      (reverse == 0) { digitalWrite(LEFT_MOTOR_FORWARD, HIGH); digitalWrite(LEFT_MOTOR_BACKWARD, LOW); }
-      else if (reverse == 1) { digitalWrite(LEFT_MOTOR_BACKWARD, LOW); digitalWrite(LEFT_MOTOR_FORWARD, HIGH); }
+      else if (reverse == 1) { digitalWrite(LEFT_MOTOR_BACKWARD, HIGH); digitalWrite(LEFT_MOTOR_FORWARD, LOW); }
     }
     else if(i == RIGHT) {
       analogWrite(RIGHT_MOTOR_PWM, spd);
       if      (reverse == 0) { digitalWrite(RIGHT_MOTOR_FORWARD, HIGH); digitalWrite(RIGHT_MOTOR_BACKWARD, LOW); }
-      else if (reverse == 1) { digitalWrite(RIGHT_MOTOR_BACKWARD, LOW); digitalWrite(RIGHT_MOTOR_FORWARD, HIGH); }
+      else if (reverse == 1) { digitalWrite(RIGHT_MOTOR_BACKWARD, HIGH); digitalWrite(RIGHT_MOTOR_FORWARD, LOW); }
     }
     else {
       analogWrite(BACK_MOTOR_PWM, spd);
       if      (reverse == 0) { digitalWrite(BACK_MOTOR_FORWARD, HIGH); digitalWrite(BACK_MOTOR_BACKWARD, LOW); }
-      else if (reverse == 1) { digitalWrite(BACK_MOTOR_BACKWARD, LOW); digitalWrite(BACK_MOTOR_FORWARD, HIGH); }
+      else if (reverse == 1) { digitalWrite(BACK_MOTOR_BACKWARD, HIGH); digitalWrite(BACK_MOTOR_FORWARD, LOW); }
     }
   }
   
