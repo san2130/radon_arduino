@@ -17,7 +17,7 @@
   #define BACK_ENC_PIN_B 5
 #endif
    
-int readEncoder(int i);
+float readEncoder(int i);
 void resetEncoder(int i);
 void resetEncoders();
 

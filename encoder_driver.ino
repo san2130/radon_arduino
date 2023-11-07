@@ -10,41 +10,43 @@
 #ifdef USE_BASE
 
 #ifdef ARDUINO_ENC_COUNTER
-  volatile int left_enc_pos = 0;
-  volatile int right_enc_pos = 0;
-  volatile int back_enc_pos = 0;
-  static const int8_t ENC_STATES [] = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};  //encoder lookup table
+  volatile float left_velocity_i = 0;
+  volatile float right_velocity_i = 0;
+  volatile float back_velocity_i = 0;
+  volatile long left_prevT_i = 0;
+  volatile long right_prevT_i = 0;
+  volatile long back_prevT_i = 0;
   
   /* Wrap the encoder reading function */
-  int readEncoder(int i) {
-    int left_pos=0;
-    int right_pos=0;
-    int back_pos=0;
+  float readEncoder(int i) {
+    float left_vel=0;
+    float right_vel=0;
+    float back_vel=0;
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-    left_pos = left_enc_pos;
-    right_pos = right_enc_pos;
-    back_pos = back_enc_pos;
+    left_vel = left_velocity_i;
+    right_vel = right_velocity_i;
+    back_vel = back_velocity_i;
   }
 
-    if (i == LEFT) return left_pos;
-    else if(i == RIGHT) return right_pos;
-    else return back_pos;
+    if (i == LEFT) return left_vel;
+    else if(i == RIGHT) return right_vel;
+    else return back_vel;
   }
 
   /* Wrap the encoder reset function */
   void resetEncoder(int i) {
-    if (i == LEFT){
-      left_enc_pos=0;
-      return;
-    } else if(i == RIGHT){ 
-      right_enc_pos=0;
-      return;
-    }
-    else{
-      back_enc_pos=0;
-      return;
-    }
+//    if (i == LEFT){
+//      left_enc_pos=0;
+//      return;
+//    } else if(i == RIGHT){ 
+//      right_enc_pos=0;
+//      return;
+//    }
+//    else{
+//      back_enc_pos=0;
+//      return;
+//    }
   }
 #else
   #error A encoder driver must be selected!
@@ -69,13 +71,12 @@ void interruptLeftEncoder(){
    // Otherwise, increment backward
    increment = -1;
  }
- left_enc_pos = left_enc_pos + increment;
 
- // Compute velocity with method 2
-//  long currT = micros();
-//  float deltaT = ((float) (currT - prevT_i))/1.0e6;
-//  velocity_i = increment/deltaT;
-//  prevT_i = currT;
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - left_prevT_i))/1.0e6;
+ left_velocity_i = increment/deltaT;
+ left_prevT_i = currT;
 }
 
 void interruptRightEncoder(){
@@ -90,13 +91,12 @@ void interruptRightEncoder(){
    // Otherwise, increment backward
    increment = -1;
  }
- right_enc_pos = right_enc_pos + increment;
 
- // Compute velocity with method 2
-//  long currT = micros();
-//  float deltaT = ((float) (currT - prevT_i))/1.0e6;
-//  velocity_i = increment/deltaT;
-//  prevT_i = currT;
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - right_prevT_i))/1.0e6;
+ right_velocity_i = increment/deltaT;
+ right_prevT_i = currT;
 }
 
 void interruptBackEncoder(){
@@ -111,13 +111,12 @@ void interruptBackEncoder(){
    // Otherwise, increment backward
    increment = -1;
  }
- back_enc_pos = back_enc_pos + increment;
 
- // Compute velocity with method 2
-//  long currT = micros();
-//  float deltaT = ((float) (currT - prevT_i))/1.0e6;
-//  velocity_i = increment/deltaT;
-//  prevT_i = currT;
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - back_prevT_i))/1.0e6;
+ back_velocity_i = increment/deltaT;
+ back_prevT_i = currT;
 }
 
 

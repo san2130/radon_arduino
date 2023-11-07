@@ -7,37 +7,26 @@
 
 /* PID setpoint info For a Motor */
 typedef struct {
-  double TargetTicksPerFrame;    // target speed in ticks per frame
-  long Encoder;                  // encoder count
-  long PrevEnc;                  // last encoder count
-
-  /*
-  * Using previous input (PrevInput) instead of PrevError to avoid derivative kick,
-  * see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/
-  */
-  int PrevInput;                // last input
-  //int PrevErr;                   // last error
-
-  /*
-  * Using integrated term (ITerm) instead of integrated error (Ierror),
-  * to allow tuning changes,
-  * see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-tuning-changes/
-  */
-  //int Ierror;
-  int ITerm;                    //integrated term
-
-  long output;                    // last motor setting
+  float TargetVelocity;    // target speed in ticks per frame
+  float Velocity;                  // encoder count
+  float PrevVel;                  // last encoder count
+  long PrevT;
+  float PrevErr;
+  float VelFilt;
+  float ITerm;
+  float PrevInput;                // last input
+  int output;                    // last motor setting
 }
 SetPointInfo;
 
 SetPointInfo leftPID, rightPID, backPID;
 
 /* PID Parameters */
-int Kp = 20;
-int Kd = 12;
-int Ki = 0;
-int Ko = 50;
-
+float kp = 30;
+float ki = 100;
+float kd = 0.05;
+float IMAX = 150;
+float IMIN = -150;
 unsigned char moving = 0; // is the base in motion?
 
 /*
@@ -49,72 +38,67 @@ unsigned char moving = 0; // is the base in motion?
 * when going from stop to moving, that's why we can init everything on zero.
 */
 void resetPID(){
-   leftPID.TargetTicksPerFrame = 0.0;
-   leftPID.Encoder = readEncoder(LEFT);
-   leftPID.PrevEnc = leftPID.Encoder;
-   leftPID.output = 0;
-   leftPID.PrevInput = 0;
    leftPID.ITerm = 0;
-
-   rightPID.TargetTicksPerFrame = 0.0;
-   rightPID.Encoder = readEncoder(RIGHT);
-   rightPID.PrevEnc = rightPID.Encoder;
-   rightPID.output = 0;
-   rightPID.PrevInput = 0;
    rightPID.ITerm = 0;
-
-   backPID.TargetTicksPerFrame = 0.0;
-   backPID.Encoder = readEncoder(BACK);
-   backPID.PrevEnc = backPID.Encoder;
-   backPID.output = 0;
-   backPID.PrevInput = 0;
    backPID.ITerm = 0;
 }
 
 /* PID routine to compute the next motor commands */
 void doPID(SetPointInfo * p) {
-  long Perror;
-  long output;
-  int input;
 
-  //Perror = p->TargetTicksPerFrame - (p->Encoder - p->PrevEnc);
-  input = p->Encoder - p->PrevEnc;
-  Perror = p->TargetTicksPerFrame - input;
+  long currT = micros();
+  float deltaT = ((float) (currT - p->PrevT))/1.0e6;
+  p->PrevT = currT;
+
+  // Convert count/s to RPM
+  float v1 = p->Velocity/RPM_SCALE;
+
+  p->VelFilt = 0.854*p->VelFilt + 0.0728*v1 + 0.0728*p->PrevVel;
+  p->PrevVel = v1;
+
+  // Set a target
+  float vt = p->TargetVelocity;
+
+  // Compute the control signal u
+  float e = vt - p->VelFilt;
+  float u = 0.0;
+  float errdiff = e - p->PrevErr;
+  float inputdiff = p->VelFilt - p->PrevInput;
+  // Serial.print("Error ");
+  // Serial.print(e);
+  // Serial.print(" ");
+  p->ITerm = p->ITerm + e*deltaT;
+  // Serial.print("Intg ");
+  // Serial.print(ki*p->ITerm);
+  // Serial.print(" ");
+  // Serial.print("Deri ");
+  // Serial.println(kd*errdiff/deltaT);
+  if(ki*p->ITerm>IMAX)
+    p->ITerm = IMAX/ki;
+  else if(ki*p->ITerm<IMIN)
+    p->ITerm = IMIN/ki;
+  u = kp*e + ki*p->ITerm - kd*(inputdiff/deltaT);
+
+  // Set the motor speed and direction
+  int pwr = (int)(u);
+  
+  if (pwr >= MAX_PWM)
+    pwr = MAX_PWM;
+  else if (pwr <= -MAX_PWM)
+    pwr = -MAX_PWM;
 
 
-  /*
-  * Avoid derivative kick and allow tuning changes,
-  * see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/
-  * see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-tuning-changes/
-  */
-  //output = (Kp * Perror + Kd * (Perror - p->PrevErr) + Ki * p->Ierror) / Ko;
-  // p->PrevErr = Perror;
-  output = (Kp * Perror - Kd * (input - p->PrevInput) + p->ITerm) / Ko;
-  p->PrevEnc = p->Encoder;
-
-  output += p->output;
-  // Accumulate Integral error *or* Limit output.
-  // Stop accumulating when output saturates
-  if (output >= MAX_PWM)
-    output = MAX_PWM;
-  else if (output <= -MAX_PWM)
-    output = -MAX_PWM;
-  else
-  /*
-  * allow turning changes, see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-tuning-changes/
-  */
-    p->ITerm += Ki * Perror;
-
-  p->output = output;
-  p->PrevInput = input;
+  p->PrevInput = p->VelFilt;
+  p->PrevErr = e;
+  p->output = pwr;
 }
 
 /* Read the encoder values and call the PID routine */
 void updatePID() {
   /* Read the encoders */
-  leftPID.Encoder = readEncoder(LEFT);
-  rightPID.Encoder = readEncoder(RIGHT);
-  backPID.Encoder = readEncoder(BACK);
+  leftPID.Velocity = readEncoder(LEFT);
+  rightPID.Velocity = readEncoder(RIGHT);
+  backPID.Velocity = readEncoder(BACK);
   
   /* If we're not moving there is nothing more to do */
   if (!moving){
