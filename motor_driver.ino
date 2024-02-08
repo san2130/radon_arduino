@@ -12,33 +12,49 @@
 
 #ifdef L298_MOTOR_DRIVER
   void initMotorController() {
-    digitalWrite(RIGHT_MOTOR_ENABLE, HIGH);
-    digitalWrite(LEFT_MOTOR_ENABLE, HIGH);
-    digitalWrite(BACK_MOTOR_ENABLE, HIGH);
+    // digitalWrite(RIGHT_MOTOR_ENABLE, HIGH);
+    // digitalWrite(LEFT_MOTOR_ENABLE, HIGH);
+    // digitalWrite(BACK_MOTOR_ENABLE, HIGH);
   }
   
   void setMotorSpeed(int i, int spd) {
-    unsigned char reverse = 0;
+    unsigned int reverse = 0;
   
-    if (spd < 0)
+//    if (spd < 256)
+//    {
+//      reverse = 1;
+//    }
+//    else if (spd >= 256 && spd < 512)
+//    {
+//      spd = spd-256;
+//    }
+//    else
+//    {
+//      spd = 0;
+//    }
+    if(spd < 0)
     {
       spd = -spd;
       reverse = 1;
     }
-    if (spd > 255)
-      spd = 255;
-    
+    else if(spd>255)
+    {
+      spd = 0;
+    }
     if (i == LEFT) { 
-      if      (reverse == 0) { analogWrite(LEFT_MOTOR_FORWARD, spd); analogWrite(LEFT_MOTOR_BACKWARD, 0); }
-      else if (reverse == 1) { analogWrite(LEFT_MOTOR_BACKWARD, spd); analogWrite(LEFT_MOTOR_FORWARD, 0); }
+      analogWrite(LEFT_MOTOR_PWM, spd);
+      if      (reverse == 0) { digitalWrite(LEFT_MOTOR_FORWARD, HIGH); digitalWrite(LEFT_MOTOR_BACKWARD, LOW); }
+      else if (reverse == 1) { digitalWrite(LEFT_MOTOR_BACKWARD, HIGH); digitalWrite(LEFT_MOTOR_FORWARD, LOW); }
     }
     else if(i == RIGHT) {
-      if      (reverse == 0) { analogWrite(RIGHT_MOTOR_FORWARD, spd); analogWrite(RIGHT_MOTOR_BACKWARD, 0); }
-      else if (reverse == 1) { analogWrite(RIGHT_MOTOR_BACKWARD, spd); analogWrite(RIGHT_MOTOR_FORWARD, 0); }
+      analogWrite(RIGHT_MOTOR_PWM, spd);
+      if      (reverse == 0) { digitalWrite(RIGHT_MOTOR_FORWARD, HIGH); digitalWrite(RIGHT_MOTOR_BACKWARD, LOW); }
+      else if (reverse == 1) { digitalWrite(RIGHT_MOTOR_BACKWARD, HIGH); digitalWrite(RIGHT_MOTOR_FORWARD, LOW); }
     }
     else {
-      if      (reverse == 0) { analogWrite(BACK_MOTOR_FORWARD, spd); analogWrite(BACK_MOTOR_BACKWARD, 0); }
-      else if (reverse == 1) { analogWrite(BACK_MOTOR_BACKWARD, spd); analogWrite(BACK_MOTOR_FORWARD, 0); }
+      analogWrite(BACK_MOTOR_PWM, spd);
+      if      (reverse == 0) { digitalWrite(BACK_MOTOR_FORWARD, HIGH); digitalWrite(BACK_MOTOR_BACKWARD, LOW); }
+      else if (reverse == 1) { digitalWrite(BACK_MOTOR_BACKWARD, HIGH); digitalWrite(BACK_MOTOR_FORWARD, LOW); }
     }
   }
   

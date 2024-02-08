@@ -1,3 +1,4 @@
+#include <util/atomic.h>
 #include "SerialTransfer.h"
 #define USE_BASE      // Enable the base controller code
 //#undef USE_BASE     // Disable the base controller code
@@ -29,6 +30,8 @@
 /* Maximum PWM signal */
 #define MAX_PWM        255
 
+#define RPM_SCALE 500
+
 #if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
@@ -58,7 +61,7 @@
   #include "diff_controller.h"
 
   /* Run the PID loop at 30 times per second */
-  #define PID_RATE           30     // Hz
+  #define PID_RATE           1000     // Hz
 
   /* Convert the rate into an interval */
   const int PID_INTERVAL = 1000 / PID_RATE;
@@ -68,7 +71,7 @@
 
   /* Stop the robot if it hasn't received a movement command
    in this number of milliseconds */
-  #define AUTO_STOP_INTERVAL 2000
+  #define AUTO_STOP_INTERVAL 10000
   long lastMotorCommand = AUTO_STOP_INTERVAL;
 #endif
 
@@ -79,6 +82,7 @@ char success[30]="OK";
 char failure[30]="ER";
 char bd[30]="57600";
 char encRead[30];
+char motOut[30];
 
 // A pair of varibles to help parse serial commands (thanks Fergs)
 int arg = 0;
@@ -104,6 +108,28 @@ void setup()
 {
   Serial.begin(57600);
   myTransfer.begin(Serial);
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_PIN_A),
+                  interruptLeftEncoder,RISING);
+  attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_PIN_A),
+                  interruptRightEncoder,RISING);
+  attachInterrupt(digitalPinToInterrupt(BACK_ENC_PIN_A),
+                  interruptBackEncoder,RISING);
+
+  pinMode(LEFT_ENC_PIN_A,INPUT);
+  pinMode(LEFT_ENC_PIN_B,INPUT);
+  pinMode(RIGHT_ENC_PIN_A,INPUT);
+  pinMode(RIGHT_ENC_PIN_B,INPUT);
+  pinMode(BACK_ENC_PIN_A,INPUT);
+  pinMode(BACK_ENC_PIN_B,INPUT);
+  pinMode(LEFT_MOTOR_PWM,OUTPUT);
+  pinMode(RIGHT_MOTOR_PWM,OUTPUT);
+  pinMode(BACK_MOTOR_PWM,OUTPUT);
+  pinMode(LEFT_MOTOR_BACKWARD,OUTPUT);
+  pinMode(RIGHT_MOTOR_BACKWARD,OUTPUT);
+  pinMode(BACK_MOTOR_BACKWARD,OUTPUT);
+  pinMode(LEFT_MOTOR_FORWARD,OUTPUT);
+  pinMode(RIGHT_MOTOR_FORWARD,OUTPUT);
+  pinMode(BACK_MOTOR_FORWARD,OUTPUT);
 }
 
 int count(int x)
@@ -145,6 +171,13 @@ void sendEncoder()
     myTransfer.sendData(sendSize);
 }
 
+void sendOutput()
+{
+    uint16_t sendSize = 0;
+    sendSize = myTransfer.txObj(motOut, sendSize);
+    myTransfer.sendData(sendSize);
+}
+
 int runCommand(){
   int i = 0;
   char *p = argv1;
@@ -161,32 +194,50 @@ int runCommand(){
   else if(cmd=='e')
   {
     int encLeft = readEncoder(LEFT);
-    encLeft = 120;
     int count_left = count(encLeft);
     int encRight = readEncoder(RIGHT);
-    encRight = 1111;
     int count_right = count(encRight);
     int encBack = readEncoder(BACK);
-    encBack = 10;
+    int count_back = count(encBack);
     char leftRead[10], rightRead[10], backRead[10];
-    sprintf(leftRead,"%d", encLeft);
-    sprintf(rightRead,"%d", encRight);
-    sprintf(backRead,"%d", encBack);
+    if(encLeft==0)
+    {
+      leftRead[0]='0';
+      count_left=1;
+    }
+    else
+      sprintf(leftRead,"%d", encLeft);
+    if(encRight==0)
+    {
+      rightRead[0]='0';
+      count_right=1;
+    }
+    else
+      sprintf(rightRead,"%d", encRight);
+    if(encBack==0)
+    {
+      backRead[0]='0';
+      count_back=1;
+    }
+    else
+      sprintf(backRead,"%d", encBack);
     for(int i=0;i<count_left;i++)
       encRead[i] = leftRead[i];
     encRead[count_left]=' ';
     for(int i=0;i<count_right;i++)
       encRead[i+count_left+1] = rightRead[i];
     encRead[count_left+count_right+1]=' ';
-    for(int i=0;i<count(encBack);i++)
+    for(int i=0;i<count_back;i++)
       encRead[i+count_left+1+count_right+1] = backRead[i];
     sendEncoder();
   }
   else if(cmd=='r')
   {
-    resetEncoders();
-    resetPID();
-    sendSuccess();
+      resetPID();
+      kp = arg1;
+      ki = arg2;
+      kd = arg3;
+      sendSuccess();
   }
   else if(cmd=='m')
   {
@@ -198,9 +249,50 @@ int runCommand(){
       moving = 0;
     }
     else moving = 1;
-    leftPID.TargetTicksPerFrame = arg1;
-    rightPID.TargetTicksPerFrame = arg2;
-    backPID.TargetTicksPerFrame = arg3;
+    leftPID.TargetVelocity = arg1;
+    rightPID.TargetVelocity = arg2;
+    backPID.TargetVelocity = arg3;
+    leftPID.PrevT = micros();
+    rightPID.PrevT = micros();
+    backPID.PrevT = micros();
+
+    // int outLeft = leftPID.output;
+    // int count_left = count(outLeft);
+    // int outRight = rightPID.output;
+    // int count_right = count(outRight);
+    // int outBack = backPID.output;
+    // int count_back = count(outBack);
+    // char leftOut[10], rightOut[10], backOut[10];
+    // if(outLeft==0)
+    // {
+    //   leftOut[0]='0';
+    //   count_left=1;
+    // }
+    // else
+    //   sprintf(leftOut,"%d", outLeft);
+    // if(outRight==0)
+    // {
+    //   rightOut[0]='0';
+    //   count_right=1;
+    // }
+    // else
+    //   sprintf(rightOut,"%d", outRight);
+    // if(outBack==0)
+    // {
+    //   backOut[0]='0';
+    //   count_back=1;
+    // }
+    // else
+    //   sprintf(backOut,"%d", outBack);
+    // for(int i=0;i<count_left;i++)
+    //   motOut[i] = leftOut[i];
+    // motOut[count_left]=' ';
+    // for(int i=0;i<count_right;i++)
+    //   motOut[i+count_left+1] = rightOut[i];
+    // motOut[count_left+count_right+1]=' ';
+    // for(int i=0;i<count_back;i++)
+    //   motOut[i+count_left+1+count_right+1] = backOut[i];
+    // sendOutput();
     sendSuccess();
   }
   else if(cmd=='o')
@@ -287,7 +379,18 @@ void loop()
       }
     }
   }
-    
+  #ifdef USE_BASE
+    if (millis() > nextPID) {
+      updatePID();
+      nextPID += PID_INTERVAL;
+    }
   
+    // Check to see if we have exceeded the auto-stop interval
+    if ((millis() - lastMotorCommand) > AUTO_STOP_INTERVAL) {;
+      setMotorSpeeds(0, 0, 0);
+      moving = 0;
+      resetPID();
+    }
+  #endif
   delay(1000/30);
 }

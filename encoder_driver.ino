@@ -10,51 +10,43 @@
 #ifdef USE_BASE
 
 #ifdef ARDUINO_ENC_COUNTER
-  volatile long left_enc_pos = 0L;
-  volatile long right_enc_pos = 0L;
-  volatile long back_enc_pos = 0L;
-  static const int8_t ENC_STATES [] = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};  //encoder lookup table
-    
-  // /* Interrupt routine for LEFT encoder, taking care of actual counting */
-  // ISR (PCINT2_vect){
-  // 	static uint8_t enc_last=0;
-        
-	// enc_last <<=2; //shift previous state two places
-	// enc_last |= (PIND & (3 << 2)) >> 2; //read the current state into lowest 2 bits
-  
-  // 	left_enc_pos += ENC_STATES[(enc_last & 0x0f)];
-  // }
-  
-  // /* Interrupt routine for RIGHT encoder, taking care of actual counting */
-  // ISR (PCINT1_vect){
-  //       static uint8_t enc_last=0;
-          	
-	// enc_last <<=2; //shift previous state two places
-	// enc_last |= (PINC & (3 << 4)) >> 4; //read the current state into lowest 2 bits
-  
-  // 	right_enc_pos += ENC_STATES[(enc_last & 0x0f)];
-  // }
+  volatile float left_velocity_i = 0;
+  volatile float right_velocity_i = 0;
+  volatile float back_velocity_i = 0;
+  volatile long left_prevT_i = 0;
+  volatile long right_prevT_i = 0;
+  volatile long back_prevT_i = 0;
   
   /* Wrap the encoder reading function */
-  long readEncoder(int i) {
-    if (i == LEFT) return left_enc_pos;
-    else if(i == RIGHT) return right_enc_pos;
-    else return back_enc_pos;
+  float readEncoder(int i) {
+    float left_vel=0;
+    float right_vel=0;
+    float back_vel=0;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    left_vel = left_velocity_i;
+    right_vel = right_velocity_i;
+    back_vel = back_velocity_i;
+  }
+
+    if (i == LEFT) return left_vel;
+    else if(i == RIGHT) return right_vel;
+    else return back_vel;
   }
 
   /* Wrap the encoder reset function */
   void resetEncoder(int i) {
-    if (i == LEFT){
-      left_enc_pos=0L;
-      return;
-    } else if(i == RIGHT){ 
-      right_enc_pos=0L;
-      return;
-    }
-    else{
-      back_enc_pos=0L;
-      return;
-    }
+//    if (i == LEFT){
+//      left_enc_pos=0;
+//      return;
+//    } else if(i == RIGHT){ 
+//      right_enc_pos=0;
+//      return;
+//    }
+//    else{
+//      back_enc_pos=0;
+//      return;
+//    }
   }
 #else
   #error A encoder driver must be selected!
@@ -66,5 +58,66 @@ void resetEncoders() {
   resetEncoder(RIGHT);
   resetEncoder(BACK);
 }
+
+void interruptLeftEncoder(){
+ // Read encoder B when ENCA rises
+ int b = digitalRead(LEFT_ENC_PIN_B);
+ int increment = 0;
+ if(b>0){
+   // If B is high, increment forward
+   increment = 1;
+ }
+ else{
+   // Otherwise, increment backward
+   increment = -1;
+ }
+
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - left_prevT_i))/1.0e6;
+ left_velocity_i = increment/deltaT;
+ left_prevT_i = currT;
+}
+
+void interruptRightEncoder(){
+ // Read encoder B when ENCA rises
+ int b = digitalRead(RIGHT_ENC_PIN_B);
+ int increment = 0;
+ if(b>0){
+   // If B is high, increment forward
+   increment = 1;
+ }
+ else{
+   // Otherwise, increment backward
+   increment = -1;
+ }
+
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - right_prevT_i))/1.0e6;
+ right_velocity_i = increment/deltaT;
+ right_prevT_i = currT;
+}
+
+void interruptBackEncoder(){
+ // Read encoder B when ENCA rises
+ int b = digitalRead(BACK_ENC_PIN_B);
+ int increment = 0;
+ if(b>0){
+   // If B is high, increment forward
+   increment = 1;
+ }
+ else{
+   // Otherwise, increment backward
+   increment = -1;
+ }
+
+ //Compute velocity with method 2
+ long currT = micros();
+ float deltaT = ((float) (currT - back_prevT_i))/1.0e6;
+ back_velocity_i = increment/deltaT;
+ back_prevT_i = currT;
+}
+
 
 #endif
