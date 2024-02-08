@@ -19,7 +19,7 @@ typedef struct {
 }
 SetPointInfo;
 
-SetPointInfo leftPID, rightPID, backPID;
+SetPointInfo leftPID, rightPID;
 
 /* PID Parameters */
 float kp = 30;
@@ -40,7 +40,6 @@ unsigned char moving = 0; // is the base in motion?
 void resetPID(){
    leftPID.ITerm = 0;
    rightPID.ITerm = 0;
-   backPID.ITerm = 0;
 }
 
 /* PID routine to compute the next motor commands */
@@ -91,18 +90,16 @@ void updatePID() {
   /* Read the encoders */
   leftPID.Velocity = readEncoder(LEFT);
   rightPID.Velocity = readEncoder(RIGHT);
-  backPID.Velocity = readEncoder(BACK);
   
   if (!moving){
-    if (leftPID.PrevInput != 0 || rightPID.PrevInput != 0 || backPID.PrevInput != 0) resetPID();
+    if (leftPID.PrevInput != 0 || rightPID.PrevInput != 0) resetPID();
     return;
   }
 
   /* Compute PID update for each motor */
   doPID(&rightPID);
   doPID(&leftPID);
-  doPID(&backPID);
 
   /* Set the motor speeds accordingly */
-  setMotorSpeeds(leftPID.output, rightPID.output, backPID.output);
+  setMotorSpeeds(leftPID.output, rightPID.output);
 }

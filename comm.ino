@@ -1,28 +1,5 @@
 #include <util/atomic.h>
 #include "SerialTransfer.h"
-#define USE_BASE      // Enable the base controller code
-//#undef USE_BASE     // Disable the base controller code
-
-/* Define the motor controller and encoder library you are using */
-#ifdef USE_BASE
-   /* The Pololu VNH5019 dual motor driver shield */
-   //#define POLOLU_VNH5019
-
-   /* The Pololu MC33926 dual motor driver shield */
-   //#define POLOLU_MC33926
-
-   /* The RoboGaia encoder shield */
-   //#define ROBOGAIA
-   
-   /* Encoders directly attached to Arduino board */
-   #define ARDUINO_ENC_COUNTER
-
-   /* L298 Motor driver*/
-   #define L298_MOTOR_DRIVER
-#endif
-
-//#define USE_SERVOS  // Enable use of PWM servos as defined in servos.h
-#undef USE_SERVOS     // Disable use of PWM servos
 
 /* Serial port baud rate */
 #define BAUDRATE     57600
@@ -41,39 +18,25 @@
 /* Include definition of serial commands */
 #include "commands.h"
 
-/* Sensor functions */
-#include "sensors.h"
+#include "motor_driver.h"
 
-/* Include servo support if required */
-#ifdef USE_SERVOS
-   #include <Servo.h>
-   #include "servos.h"
-#endif
+/* Encoder driver function definitions */
+#include "encoder_driver.h"
 
-#ifdef USE_BASE
-  /* Motor driver function definitions */
-  #include "motor_driver.h"
+/* PID parameters and functions */
+#include "diff_controller.h"
 
-  /* Encoder driver function definitions */
-  #include "encoder_driver.h"
+/* Run the PID loop at 30 times per second */
+#define PID_RATE           1000     // Hz
+/* Convert the rate into an interval */
+const int PID_INTERVAL = 1000 / PID_RATE;
 
-  /* PID parameters and functions */
-  #include "diff_controller.h"
-
-  /* Run the PID loop at 30 times per second */
-  #define PID_RATE           1000     // Hz
-
-  /* Convert the rate into an interval */
-  const int PID_INTERVAL = 1000 / PID_RATE;
-  
-  /* Track the next time we make a PID calculation */
-  unsigned long nextPID = PID_INTERVAL;
-
-  /* Stop the robot if it hasn't received a movement command
-   in this number of milliseconds */
-  #define AUTO_STOP_INTERVAL 10000
-  long lastMotorCommand = AUTO_STOP_INTERVAL;
-#endif
+/* Track the next time we make a PID calculation */
+unsigned long nextPID = PID_INTERVAL;
+/* Stop the robot if it hasn't received a movement command
+ in this number of milliseconds */
+#define AUTO_STOP_INTERVAL 10000
+long lastMotorCommand = AUTO_STOP_INTERVAL;
 
 SerialTransfer myTransfer;
 
@@ -112,24 +75,17 @@ void setup()
                   interruptLeftEncoder,RISING);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_PIN_A),
                   interruptRightEncoder,RISING);
-  attachInterrupt(digitalPinToInterrupt(BACK_ENC_PIN_A),
-                  interruptBackEncoder,RISING);
 
   pinMode(LEFT_ENC_PIN_A,INPUT);
   pinMode(LEFT_ENC_PIN_B,INPUT);
   pinMode(RIGHT_ENC_PIN_A,INPUT);
   pinMode(RIGHT_ENC_PIN_B,INPUT);
-  pinMode(BACK_ENC_PIN_A,INPUT);
-  pinMode(BACK_ENC_PIN_B,INPUT);
   pinMode(LEFT_MOTOR_PWM,OUTPUT);
   pinMode(RIGHT_MOTOR_PWM,OUTPUT);
-  pinMode(BACK_MOTOR_PWM,OUTPUT);
   pinMode(LEFT_MOTOR_BACKWARD,OUTPUT);
   pinMode(RIGHT_MOTOR_BACKWARD,OUTPUT);
-  pinMode(BACK_MOTOR_BACKWARD,OUTPUT);
   pinMode(LEFT_MOTOR_FORWARD,OUTPUT);
   pinMode(RIGHT_MOTOR_FORWARD,OUTPUT);
-  pinMode(BACK_MOTOR_FORWARD,OUTPUT);
 }
 
 int count(int x)
@@ -197,9 +153,7 @@ int runCommand(){
     int count_left = count(encLeft);
     int encRight = readEncoder(RIGHT);
     int count_right = count(encRight);
-    int encBack = readEncoder(BACK);
-    int count_back = count(encBack);
-    char leftRead[10], rightRead[10], backRead[10];
+    char leftRead[10], rightRead[10];
     if(encLeft==0)
     {
       leftRead[0]='0';
@@ -214,21 +168,11 @@ int runCommand(){
     }
     else
       sprintf(rightRead,"%d", encRight);
-    if(encBack==0)
-    {
-      backRead[0]='0';
-      count_back=1;
-    }
-    else
-      sprintf(backRead,"%d", encBack);
     for(int i=0;i<count_left;i++)
       encRead[i] = leftRead[i];
     encRead[count_left]=' ';
     for(int i=0;i<count_right;i++)
       encRead[i+count_left+1] = rightRead[i];
-    encRead[count_left+count_right+1]=' ';
-    for(int i=0;i<count_back;i++)
-      encRead[i+count_left+1+count_right+1] = backRead[i];
     sendEncoder();
   }
   else if(cmd=='r')
@@ -243,18 +187,16 @@ int runCommand(){
   {
     /* Reset the auto stop timer */
     lastMotorCommand = millis();
-    if (arg1 == 0 && arg2 == 0 && arg3 == 0) {
-      setMotorSpeeds(0, 0, 0);
+    if (arg1 == 0 && arg2 == 0) {
+      setMotorSpeeds(0, 0);
       resetPID();
       moving = 0;
     }
     else moving = 1;
     leftPID.TargetVelocity = arg1;
     rightPID.TargetVelocity = arg2;
-    backPID.TargetVelocity = arg3;
     leftPID.PrevT = micros();
     rightPID.PrevT = micros();
-    backPID.PrevT = micros();
 
     // int outLeft = leftPID.output;
     // int count_left = count(outLeft);
@@ -301,7 +243,7 @@ int runCommand(){
     lastMotorCommand = millis();
     resetPID();
     moving = 0; // Sneaky way to temporarily disable the PID
-    setMotorSpeeds(arg1, arg2, arg3);
+    setMotorSpeeds(arg1, arg2);
     sendSuccess();
   }
   else
@@ -316,10 +258,8 @@ void resetCommand() {
   cmd = NULL;
   memset(argv1, 0, sizeof(argv1));
   memset(argv2, 0, sizeof(argv2));
-  memset(argv3, 0, sizeof(argv3));
   arg1 = 0;
   arg2 = 0;
-  arg3 = 0;
   arg = 0;
   index = 0;
 }
@@ -338,7 +278,6 @@ void loop()
        if (chr == 13) {
         if (arg == 1) argv1[index] = NULL;
         else if (arg == 2) argv2[index] = NULL;
-        else if(arg == 3) argv3[index] = NULL;
           runCommand();
           resetCommand();
        }
@@ -349,11 +288,6 @@ void loop()
         else if (arg == 1)  {
           argv1[index] = NULL;
           arg = 2;
-          index = 0;
-        }
-        else if (arg == 2) {
-          argv2[index] = NULL;
-          arg = 3;
           index = 0;
         }
         continue;
@@ -372,25 +306,20 @@ void loop()
           argv2[index] = chr;
           index++;
         }
-        else if (arg == 3) {
-          argv3[index] = chr;
-          index++;
-        }
       }
     }
   }
-  #ifdef USE_BASE
-    if (millis() > nextPID) {
-      updatePID();
-      nextPID += PID_INTERVAL;
-    }
-  
-    // Check to see if we have exceeded the auto-stop interval
-    if ((millis() - lastMotorCommand) > AUTO_STOP_INTERVAL) {;
-      setMotorSpeeds(0, 0, 0);
-      moving = 0;
-      resetPID();
-    }
-  #endif
+
+if (millis() > nextPID) {
+  updatePID();
+  nextPID += PID_INTERVAL;
+}
+
+// Check to see if we have exceeded the auto-stop interval
+if ((millis() - lastMotorCommand) > AUTO_STOP_INTERVAL) {;
+  setMotorSpeeds(0, 0);
+  moving = 0;
+  resetPID();
+}
   delay(1000/30);
 }
