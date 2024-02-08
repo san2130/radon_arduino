@@ -64,15 +64,8 @@ void doPID(SetPointInfo * p) {
   float u = 0.0;
   float errdiff = e - p->PrevErr;
   float inputdiff = p->VelFilt - p->PrevInput;
-  // Serial.print("Error ");
-  // Serial.print(e);
-  // Serial.print(" ");
   p->ITerm = p->ITerm + e*deltaT;
-  // Serial.print("Intg ");
-  // Serial.print(ki*p->ITerm);
-  // Serial.print(" ");
-  // Serial.print("Deri ");
-  // Serial.println(kd*errdiff/deltaT);
+
   if(ki*p->ITerm>IMAX)
     p->ITerm = IMAX/ki;
   else if(ki*p->ITerm<IMIN)
@@ -100,14 +93,7 @@ void updatePID() {
   rightPID.Velocity = readEncoder(RIGHT);
   backPID.Velocity = readEncoder(BACK);
   
-  /* If we're not moving there is nothing more to do */
   if (!moving){
-    /*
-    * Reset PIDs once, to prevent startup spikes,
-    * see http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/
-    * PrevInput is considered a good proxy to detect
-    * whether reset has already happened
-    */
     if (leftPID.PrevInput != 0 || rightPID.PrevInput != 0 || backPID.PrevInput != 0) resetPID();
     return;
   }
