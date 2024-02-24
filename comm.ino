@@ -258,8 +258,10 @@ void resetCommand() {
   cmd = NULL;
   memset(argv1, 0, sizeof(argv1));
   memset(argv2, 0, sizeof(argv2));
+  memset(argv3, 0, sizeof(argv3));
   arg1 = 0;
   arg2 = 0;
+  arg3 = 0;
   arg = 0;
   index = 0;
 }
@@ -278,6 +280,7 @@ void loop()
        if (chr == 13) {
         if (arg == 1) argv1[index] = NULL;
         else if (arg == 2) argv2[index] = NULL;
+        else if(arg == 3) argv3[index] = NULL;
           runCommand();
           resetCommand();
        }
@@ -288,6 +291,11 @@ void loop()
         else if (arg == 1)  {
           argv1[index] = NULL;
           arg = 2;
+          index = 0;
+        }
+        else if (arg == 2) {
+          argv2[index] = NULL;
+          arg = 3;
           index = 0;
         }
         continue;
@@ -304,6 +312,10 @@ void loop()
         }
         else if (arg == 2) {
           argv2[index] = chr;
+          index++;
+        }
+        else if (arg == 3) {
+          argv3[index] = chr;
           index++;
         }
       }
