@@ -192,7 +192,12 @@ int runCommand(){
       resetPID();
       moving = 0;
     }
-    else moving = 1;
+    else 
+    {
+      if(moving==0)
+        resetPID();
+      moving = 1;
+    }
     leftPID.TargetVelocity = arg1;
     rightPID.TargetVelocity = arg2;
     leftPID.PrevT = micros();
