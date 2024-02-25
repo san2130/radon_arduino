@@ -57,7 +57,7 @@ void interruptLeftEncoder(){
  //Compute velocity with method 2
  long currT = micros();
  float deltaT = ((float) (currT - left_prevT_i))/1.0e6;
- left_velocity_i = increment/deltaT;
+ left_velocity_i = -1*increment/deltaT;
  left_prevT_i = currT;
 }
 

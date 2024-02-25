@@ -3,9 +3,9 @@
    *************************************************************/
 
 #define RIGHT_MOTOR_BACKWARD 7
-#define LEFT_MOTOR_BACKWARD  9
+#define LEFT_MOTOR_BACKWARD  8
 #define RIGHT_MOTOR_FORWARD  6
-#define LEFT_MOTOR_FORWARD   8
+#define LEFT_MOTOR_FORWARD   9
 #define RIGHT_MOTOR_PWM 10
 #define LEFT_MOTOR_PWM 11
 
